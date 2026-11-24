@@ -9,6 +9,17 @@ terraform {
 
 provider "docker" {}
 
+variable "db_password" {
+  description = "Senha do PostgreSQL"
+  type        = string
+  sensitive   = true
+}
+
+resource "docker_network" "internal" {
+  name     = "fiap-dp-internal"
+  internal = true
+}
+
 resource "docker_image" "nginx" {
   name = "nginx:alpine"
 }
@@ -18,8 +29,15 @@ resource "docker_image" "postgres" {
 }
 
 resource "docker_container" "web" {
+  networks_advanced {
+    name = docker_network.frontend.name
+  }
   name  = "fiap-dp-web"
   image = docker_image.nginx.image_id
+
+  networks_advanced {
+    name = docker_network.internal.name
+  }
 
   ports {
     internal = 80
@@ -35,12 +53,14 @@ resource "docker_container" "database" {
   env = [
     "POSTGRES_USER=fiap",
     "POSTGRES_DB=fiapdb",
-    "POSTGRES_PASSWORD=SenhaLaboratorio123"
+    "POSTGRES_PASSWORD=${var.db_password}"
   ]
 
-  ports {
-    internal = 5432
-    external = 5433
-    ip       = "0.0.0.0"
+  networks_advanced {
+    name = docker_network.internal.name
   }
+}
+
+resource "docker_network" "frontend" {
+  name = "fiap-dp-frontend"
 }
